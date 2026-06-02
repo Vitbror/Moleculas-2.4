@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Stark Molecular Lab</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; }
+    #ui {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .mol-btn {
+      background: rgba(0, 20, 50, 0.85);
+      color: #00cfff;
+      border: 1px solid #00cfff66;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    }
+    .mol-btn:hover, .mol-btn.active {
+      background: rgba(0, 180, 255, 0.15);
+      border-color: #00cfff;
+      box-shadow: 0 0 18px #00cfff88, inset 0 0 10px #00cfff22;
+      color: #fff;
+    }
+    #hud-top {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 16px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 999;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(0,10,30,0.8), transparent);
+    }
+    #mol-name {
+      font-family: 'Courier New', monospace;
+      font-size: 22px;
+      color: #00cfff;
+      text-shadow: 0 0 12px #00cfff;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    #mol-formula {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #0088bb;
+      letter-spacing: 3px;
+    }
+    #stark-logo {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #00cfff44;
+      letter-spacing: 3px;
+      text-align: right;
+    }
+    #scanline {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 998;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 2px,
+        rgba(0, 180, 255, 0.015) 2px,
+        rgba(0, 180, 255, 0.015) 4px
+      );
+    }
+    #corner-tl, #corner-tr, #corner-bl, #corner-br {
+      position: fixed;
+      width: 40px; height: 40px;
+      z-index: 999;
+      pointer-events: none;
+    }
+    #corner-tl { top: 12px; left: 12px; border-top: 2px solid #00cfff66; border-left: 2px solid #00cfff66; }
+    #corner-tr { top: 12px; right: 12px; border-top: 2px solid #00cfff66; border-right: 2px solid #00cfff66; }
+    #corner-bl { bottom: 70px; left: 12px; border-bottom: 2px solid #00cfff66; border-left: 2px solid #00cfff66; }
+    #corner-br { bottom: 70px; right: 12px; border-bottom: 2px solid #00cfff66; border-right: 2px solid #00cfff66; }
+  </style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="scanline"></div>
+<div id="corner-tl"></div>
+<div id="corner-tr"></div>
+<div id="corner-bl"></div>
+<div id="corner-br"></div>
+
+<div id="hud-top">
+  <div>
+    <div id="mol-name">ÁGUA</div>
+    <div id="mol-formula">H₂O — 3 ÁTOMOS — 2 LIGAÇÕES</div>
+  </div>
+  <div id="stark-logo">STARK MOLECULAR LAB<br>v3.1.4 // JARVIS</div>
+</div>
+
+<div id="ui">
+  <button class="mol-btn active" onclick="loadMolecule('water',this)">H₂O</button>
+  <button class="mol-btn" onclick="loadMolecule('co2',this)">CO₂</button>
+  <button class="mol-btn" onclick="loadMolecule('methane',this)">CH₄</button>
+  <button class="mol-btn" onclick="loadMolecule('ammonia',this)">NH₃</button>
+  <button class="mol-btn" onclick="loadMolecule('glucose',this)">C₆H₁₂O₆</button>
+  <button class="mol-btn" onclick="loadMolecule('caffeine',this)">CAFEÍNA</button>
+</div>
+
+<a-scene background="color: #000510" vr-mode-ui="enabled: true" renderer="antialias: true">
+
+  <a-entity id="rig" position="0 1.6 3.5">
+    <a-camera look-controls="pointerLockEnabled: false" wasd-controls="enabled: false"></a-camera>
+  </a-entity>
+
+  <a-entity laser-controls="hand: left"  raycaster="objects: .interactable"></a-entity>
+  <a-entity laser-controls="hand: right" raycaster="objects: .interactable"></a-entity>
+
+  <!-- Iluminação holográfica -->
+  <a-light type="ambient" color="#001830" intensity="2"></a-light>
+  <a-light type="point" position="0 4 0"   color="#00aaff" intensity="1.5"></a-light>
+  <a-light type="point" position="3 2 -2"  color="#0044ff" intensity="0.8"></a-light>
+  <a-light type="point" position="-3 2 -2" color="#00ffee" intensity="0.6"></a-light>
+
+  <!-- Molécula -->
+  <a-entity id="molecule-wrapper" position="0 1.6 -0.8">
+    <a-entity id="molecule" class="interactable" drag-rotate></a-entity>
+  </a-entity>
+
+  <!-- Partículas flutuantes -->
+  <a-entity id="particles"></a-entity>
+
+  <!-- Grid holográfico no chão -->
+  <a-entity id="grid-floor" position="0 -0.5 0"></a-entity>
+
+  <!-- Anel orbital decorativo -->
+  <a-torus position="0 1.6 -0.8" radius="1.4" radius-tubular="0.005"
+    color="#00cfff" material="opacity:0.15; transparent:true; shader:flat"
+    animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+  </a-torus>
+  <a-torus position="0 1.6 -0.8" radius="1.7" radius-tubular="0.004"
+    color="#0066ff" material="opacity:0.1; transparent:true; shader:flat"
+    rotation="45 0 0"
+    animation="property: rotation; from: 45 0 0; to: 45 360 0; loop: true; dur: 12000; easing: linear">
+  </a-torus>
+
+</a-scene>
+
+<script>
+// ─── Componente drag-rotate ──────────────────────────────────────────────────
+AFRAME.registerComponent('drag-rotate', {
+  init() {
+    this.dragging = false;
+    this.lastX = 0; this.lastY = 0;
+    this.rotX = 0;  this.rotY = 0;
+    this.velX = 0;  this.velY = 0;
+
+    const canvas = this.el.sceneEl.canvas;
+    const onDown = (x,y) => { this.dragging=true; this.lastX=x; this.lastY=y; this.velX=0; this.velY=0; };
+    const onMove = (x,y) => {
+      if (!this.dragging) return;
+      const dx=x-this.lastX, dy=y-this.lastY;
+      this.velX=dy*0.5; this.velY=dx*0.5;
+      this.rotY+=this.velY; this.rotX+=this.velX;
+      this.lastX=x; this.lastY=y;
+    };
+    const onUp = () => { this.dragging=false; };
+
+    canvas.addEventListener('mousedown',  e=>onDown(e.clientX,e.clientY));
+    canvas.addEventListener('mousemove',  e=>onMove(e.clientX,e.clientY));
+    canvas.addEventListener('mouseup',    onUp);
+    canvas.addEventListener('touchstart', e=>onDown(e.touches[0].clientX,e.touches[0].clientY));
+    canvas.addEventListener('touchmove',  e=>{e.preventDefault();onMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+    canvas.addEventListener('touchend',   onUp);
+
+    canvas.addEventListener('wheel', e=>{
+      const w=document.querySelector('#molecule-wrapper');
+      w.object3D.position.z=Math.max(-2.5,Math.min(-0.3,w.object3D.position.z+e.deltaY*0.003));
+    });
+  },
+  tick() {
+    if (!this.dragging) {
+      this.velX*=0.95; this.velY*=0.95;
+      this.rotX+=this.velX; this.rotY+=this.velY;
+      if (Math.abs(this.velX)<0.01 && Math.abs(this.velY)<0.01) this.rotY+=0.12;
+    }
+    this.el.object3D.rotation.set(
+      THREE.MathUtils.degToRad(this.rotX),
+      THREE.MathUtils.degToRad(this.rotY), 0
+    );
+  }
+});
+
+// ─── Moléculas ────────────────────────────────────────────────────────────────
+const MOLECULES = {
+  water:   { name:"ÁGUA",    formula:"H₂O",      atoms:[
+    {pos:[0,0,0],      color:"#00aaff", r:0.28, label:"O"},
+    {pos:[-0.5,0.4,0], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[ 0.5,0.4,0], color:"#ffffff", r:0.18, label:"H"},
+  ], bonds:[[0,1],[0,2]]},
+  co2:     { name:"DIÓXIDO DE CARBONO", formula:"CO₂", atoms:[
+    {pos:[0,0,0],    color:"#888888", r:0.26, label:"C"},
+    {pos:[-0.8,0,0], color:"#ff3333", r:0.28, label:"O"},
+    {pos:[ 0.8,0,0], color:"#ff3333", r:0.28, label:"O"},
+  ], bonds:[[0,1],[0,2]]},
+  methane: { name:"METANO",  formula:"CH₄",      atoms:[
+    {pos:[0,0,0],          color:"#aaaaaa", r:0.26, label:"C"},
+    {pos:[ 0.6, 0.6, 0.6], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[-0.6,-0.6, 0.6], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[-0.6, 0.6,-0.6], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[ 0.6,-0.6,-0.6], color:"#ffffff", r:0.18, label:"H"},
+  ], bonds:[[0,1],[0,2],[0,3],[0,4]]},
+  ammonia: { name:"AMÔNIA",  formula:"NH₃",      atoms:[
+    {pos:[0,0.2,0],        color:"#4466ff", r:0.26, label:"N"},
+    {pos:[-0.5,-0.4, 0.3], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[ 0.5,-0.4, 0.3], color:"#ffffff", r:0.18, label:"H"},
+    {pos:[ 0,  -0.4,-0.5], color:"#ffffff", r:0.18, label:"H"},
+  ], bonds:[[0,1],[0,2],[0,3]]},
+  glucose: { name:"GLICOSE", formula:"C₆H₁₂O₆", atoms:[
+    {pos:[ 0.7, 0.4,0],   color:"#aaaaaa",r:0.22,label:"C1"},
+    {pos:[ 0.7,-0.4,0],   color:"#aaaaaa",r:0.22,label:"C2"},
+    {pos:[ 0.0,-0.8,0],   color:"#aaaaaa",r:0.22,label:"C3"},
+    {pos:[-0.7,-0.4,0],   color:"#aaaaaa",r:0.22,label:"C4"},
+    {pos:[-0.7, 0.4,0],   color:"#aaaaaa",r:0.22,label:"C5"},
+    {pos:[ 0.0, 0.8,0],   color:"#ff3333",r:0.22,label:"O"},
+    {pos:[ 1.3, 0.4,0.5], color:"#ff3333",r:0.20,label:"OH"},
+    {pos:[ 1.3,-0.4,-0.4],color:"#ff3333",r:0.20,label:"OH"},
+    {pos:[ 0.0,-1.5,0],   color:"#ff3333",r:0.20,label:"OH"},
+    {pos:[-1.3,-0.4,0.4], color:"#ff3333",r:0.20,label:"OH"},
+    {pos:[-1.3, 0.4,-0.5],color:"#aaaaaa",r:0.22,label:"C6"},
+    {pos:[-1.9, 1.0,-0.5],color:"#ff3333",r:0.20,label:"OH"},
+  ], bonds:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,6],[1,7],[2,8],[3,9],[4,10],[10,11]]},
+  caffeine:{ name:"CAFEÍNA", formula:"C₈H₁₀N₄O₂", atoms:[
+    {pos:[ 0.0, 0.9,0],    color:"#aaaaaa",r:0.22,label:"C"},
+    {pos:[ 0.8, 0.4,0],    color:"#aaaaaa",r:0.22,label:"C"},
+    {pos:[ 0.8,-0.4,0],    color:"#aaaaaa",r:0.22,label:"C"},
+    {pos:[ 0.0,-0.9,0],    color:"#4466ff",r:0.24,label:"N"},
+    {pos:[-0.8,-0.4,0],    color:"#aaaaaa",r:0.22,label:"C"},
+    {pos:[-0.8, 0.4,0],    color:"#4466ff",r:0.24,label:"N"},
+    {pos:[ 1.7, 0.9,0],    color:"#4466ff",r:0.24,label:"N"},
+    {pos:[ 1.7,-0.9,0],    color:"#4466ff",r:0.24,label:"N"},
+    {pos:[ 2.4, 0.0,0],    color:"#aaaaaa",r:0.22,label:"C"},
+    {pos:[ 0.0, 1.7,0],    color:"#ff3333",r:0.22,label:"O"},
+    {pos:[-0.0,-1.7,0],    color:"#ff3333",r:0.22,label:"O"},
+    {pos:[-1.6, 0.4,0],    color:"#aaaaaa",r:0.20,label:"CH₃"},
+    {pos:[-1.6,-0.4,0],    color:"#aaaaaa",r:0.20,label:"CH₃"},
+    {pos:[ 2.4, 1.6,0],    color:"#aaaaaa",r:0.20,label:"CH₃"},
+  ], bonds:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[1,6],[2,7],[6,8],[7,8],[0,9],[3,10],[5,11],[4,12],[6,13]]},
+};
+
+// ─── Grid holográfico ─────────────────────────────────────────────────────────
+const gridEl = document.querySelector('#grid-floor');
+const gs = 20, gc = 20;
+for (let i=-gc; i<=gc; i++) {
+  const lh = document.createElement('a-entity');
+  lh.setAttribute('line',`start:-${gs} 0 ${i*0.5}; end:${gs} 0 ${i*0.5}; color:#00cfff; opacity:${i===0?0.25:0.07}`);
+  gridEl.appendChild(lh);
+  const lv = document.createElement('a-entity');
+  lv.setAttribute('line',`start:${i*0.5} 0 -${gs}; end:${i*0.5} 0 ${gs}; color:#00cfff; opacity:${i===0?0.25:0.07}`);
+  gridEl.appendChild(lv);
+}
+
+// ─── Partículas ───────────────────────────────────────────────────────────────
+const partEl = document.querySelector('#particles');
+for (let i=0; i<40; i++) {
+  const p = document.createElement('a-sphere');
+  const x=(Math.random()-0.5)*8, y=Math.random()*4, z=(Math.random()-0.5)*8-2;
+  p.setAttribute('position',`${x} ${y} ${z}`);
+  p.setAttribute('radius', 0.015+Math.random()*0.025);
+  p.setAttribute('color','#00cfff');
+  p.setAttribute('material','shader:flat; opacity:0.6');
+  p.setAttribute('animation',`property:position; to:${x} ${y+1+Math.random()*2} ${z}; dur:${3000+Math.random()*4000}; loop:true; dir:alternate; easing:easeInOutSine`);
+  partEl.appendChild(p);
+}
+
+// ─── Criar ligação holográfica ────────────────────────────────────────────────
+function createBond(p1, p2) {
+  const [x1,y1,z1]=p1, [x2,y2,z2]=p2;
+  const mx=(x1+x2)/2, my=(y1+y2)/2, mz=(z1+z2)/2;
+  const dx=x2-x1, dy=y2-y1, dz=z2-z1;
+  const len=Math.sqrt(dx*dx+dy*dy+dz*dz);
+
+  // Tubo principal
+  const bond=document.createElement('a-cylinder');
+  bond.setAttribute('position',`${mx} ${my} ${mz}`);
+  bond.setAttribute('radius',0.04);
+  bond.setAttribute('height',len);
+  bond.setAttribute('color','#00cfff');
+  bond.setAttribute('material','opacity:0.5; transparent:true; shader:flat; emissive:#00cfff; emissiveIntensity:1');
+
+  // Glow do tubo
+  const glow=document.createElement('a-cylinder');
+  glow.setAttribute('position',`${mx} ${my} ${mz}`);
+  glow.setAttribute('radius',0.08);
+  glow.setAttribute('height',len);
+  glow.setAttribute('color','#0044ff');
+  glow.setAttribute('material','opacity:0.08; transparent:true; shader:flat');
+
+  const up=new THREE.Vector3(0,1,0);
+  const dir=new THREE.Vector3(dx,dy,dz).normalize();
+  const q=new THREE.Quaternion().setFromUnitVectors(up,dir);
+  const euler=new THREE.Euler().setFromQuaternion(q,'XYZ');
+  const rot={
+    x:THREE.MathUtils.radToDeg(euler.x),
+    y:THREE.MathUtils.radToDeg(euler.y),
+    z:THREE.MathUtils.radToDeg(euler.z)
+  };
+  bond.setAttribute('rotation',rot);
+  glow.setAttribute('rotation',rot);
+
+  return [bond, glow];
+}
+
+// ─── Carregar molécula ────────────────────────────────────────────────────────
+function loadMolecule(key, btn) {
+  const mol=MOLECULES[key];
+  const container=document.querySelector('#molecule');
+  while(container.firstChild) container.removeChild(container.firstChild);
+
+  mol.atoms.forEach(atom => {
+    // Glow externo
+    const glow=document.createElement('a-sphere');
+    glow.setAttribute('position',atom.pos.join(' '));
+    glow.setAttribute('radius',atom.r*2.2);
+    glow.setAttribute('color',atom.color);
+    glow.setAttribute('material',`opacity:0.06; transparent:true; shader:flat`);
+    container.appendChild(glow);
+
+    // Glow médio
+    const glow2=document.createElement('a-sphere');
+    glow2.setAttribute('position',atom.pos.join(' '));
+    glow2.setAttribute('radius',atom.r*1.5);
+    glow2.setAttribute('color',atom.color);
+    glow2.setAttribute('material',`opacity:0.12; transparent:true; shader:flat`);
+    container.appendChild(glow2);
+
+    // Esfera principal (wireframe + sólido)
+    const sphere=document.createElement('a-sphere');
+    sphere.setAttribute('position',atom.pos.join(' '));
+    sphere.setAttribute('radius',atom.r);
+    sphere.setAttribute('color',atom.color);
+    sphere.setAttribute('material',`opacity:0.75; transparent:true; metalness:0.1; roughness:0.1; emissive:${atom.color}; emissiveIntensity:0.6`);
+    container.appendChild(sphere);
+
+    // Wireframe overlay
+    const wire=document.createElement('a-sphere');
+    wire.setAttribute('position',atom.pos.join(' '));
+    wire.setAttribute('radius',atom.r*1.02);
+    wire.setAttribute('color',atom.color);
+    wire.setAttribute('material',`wireframe:true; opacity:0.4; transparent:true; shader:flat`);
+    container.appendChild(wire);
+
+    // Label
+    const label=document.createElement('a-text');
+    label.setAttribute('value',atom.label);
+    label.setAttribute('position',`${atom.pos[0]} ${atom.pos[1]+atom.r+0.2} ${atom.pos[2]}`);
+    label.setAttribute('align','center');
+    label.setAttribute('color','#00cfff');
+    label.setAttribute('width',1.5);
+    label.setAttribute('material','shader:flat');
+    container.appendChild(label);
+  });
+
+  mol.bonds.forEach(([i,j]) => {
+    const [b,g]=createBond(mol.atoms[i].pos, mol.atoms[j].pos);
+    container.appendChild(g);
+    container.appendChild(b);
+  });
+
+  // HUD
+  document.getElementById('mol-name').textContent=mol.name;
+  document.getElementById('mol-formula').textContent=`${mol.formula} — ${mol.atoms.length} ÁTOMOS — ${mol.bonds.length} LIGAÇÕES`;
+  document.querySelectorAll('.mol-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+document.querySelector('a-scene').addEventListener('loaded',()=>loadMolecule('water',document.querySelector('.mol-btn')));
+</script>
+</body>
+</html>
